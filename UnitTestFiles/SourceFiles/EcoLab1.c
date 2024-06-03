@@ -1,39 +1,20 @@
-﻿/*
- * <кодировка символов>
- *   Cyrillic (UTF-8 with signature) - Codepage 65001
- * </кодировка символов>
- *
- * <сводка>
- *   EcoLab1
- * </сводка>
- *
- * <описание>
- *   Данный исходный файл является точкой входа
- * </описание>
- *
- * <автор>
- *   Copyright (c) 2024 Sergey Goriachev. All rights reserved.
- * </автор>
- *
- */
-
-
-/* Eco OS */
-#include "IEcoSystem1.h"
+﻿#include "IEcoSystem1.h"
 #include "IdEcoMemoryManager1.h"
 #include "IdEcoInterfaceBus1.h"
 #include "IdEcoFileSystemManagement1.h"
 #include "IdEcoLab1.h"
 #include <stdio.h>
 #include <stdlib.h>
-
-#include "IEcoCalculatorX.h"
-#include "IEcoCalculatorY.h"
-
 #include "IdEcoCalculatorA.h"
 #include "IdEcoCalculatorB.h"
 #include "IdEcoCalculatorD.h"
 #include "IdEcoCalculatorE.h"
+
+#include "IEcoLab1Events.h"
+#include "IdEcoLab1.h"
+#include "IdEcoList1.h"
+#include "CEcoLab1Sink.h"
+#include "IEcoConnectionPointContainer.h"
 
 // Вывод в консоль
 void printArrInt(int* arr, size_t arr_size) {
@@ -140,6 +121,25 @@ void *createCopyArr(IEcoMemoryAllocator1 *pIMem, void *src, uint32_t byte_count)
     return copy_array;
 }
 
+void CheckInf(int n, Process processes[]){
+    int i;
+	printf("Entered data: \n");
+    for (i = 0; i < n; i++) {
+        printf("Process %d: ", processes[i].id);
+        printf("Arrival time: %d  Burst time: %d  Priority: %d\n", processes[i].arrival_time, processes[i].burst_time, processes[i].priority);
+    }
+    printf("\n");
+}
+
+void CheckOrder(int n, int *completion_order){
+    int i;
+    printf("Orders after planning function: ");
+    for (i = 0; i < n; i++) {
+        printf("%d ", completion_order[i]);
+    }
+    printf("\n");
+}
+
 int16_t EcoMain(IEcoUnknown* pIUnk) {
 
     int16_t result = -1;
@@ -152,29 +152,49 @@ int16_t EcoMain(IEcoUnknown* pIUnk) {
     IEcoMemoryAllocator1* pIMem = 0;
     /* Указатель на тестируемый интерфейс */
     IEcoLab1* pIEcoLab1 = 0;
-	IEcoLab1* pIEcoLab2 = 0;
-	IEcoCalculatorX* pIX = 0;
-	IEcoCalculatorY* pIY = 0;
-	int16_t a = 0;
-	int16_t b = 0;
-	int32_t resultat = 0;
-	char_t* name = 0;
+
+	/* Указатель на интерфейс контейнера точек подключения */
+	IEcoConnectionPointContainer* pICPC = 0;  
+	/* Указатель на интерфейс точки подключения */
+    IEcoConnectionPoint* pICP = 0;        
+	/* Указатель на обратный интерфейс */
+    IEcoLab1Events* pIEcoLab1Sink = 0;
+
+    IEcoUnknown* pISinkUnk = 0;
+    uint32_t cAdvise = 0;
+
+	//int16_t a = 0;
+	//int16_t b = 0;
+	//int32_t resultat = 0;
+	//char_t* name = 0;
+
+	int orders[100];
+    int i;
+    Process processes[] = {
+	{1, 1, 1, 3}, // id=1, arrival_time=0, burst_time=2, priority=3
+    {2, 0, 2, 4}, // id=2, arrival_time=1, burst_time=1, priority=4
+    {3, 3, 4, 2}, // id=3, arrival_time=3, burst_time=4, priority=2
+    {4, 5, 3, 5}, // id=4, arrival_time=5, burst_time=3, priority=5
+    {5, 6, 2, 1}  // id=5, arrival_time=6, burst_time=2, priority=1
+    };
+    int count = sizeof(processes) / sizeof(processes[0]);
 
 	/* Секндомер */
-	clock_t start_time;
+	//clock_t start_time;
+
 
 	/* Массивы для stooge sort */
-    int* arr_int_stooge_sort; 
-    float* arr_float_stooge_sort;
-	double* arr_fdouble_stooge_sort;
+    //int* arr_int_stooge_sort;
+    //float* arr_float_stooge_sort;
+	//double* arr_fdouble_stooge_sort;
 
 	/* Массивы для qsort */
-	int* arr_int_qsort;
-	float* arr_float_qsort;
-    double* arr_double_qsort;
+	//int* arr_int_qsort;
+	//float* arr_float_qsort;
+    //double* arr_double_qsort;
 
 	/* Размер массива сравнения */
-	size_t arr_size = 0;
+	//size_t arr_size = 0;
 
     /* Проверка и создание системного интрефейса */
     if (pISys == 0) {
@@ -208,10 +228,45 @@ int16_t EcoMain(IEcoUnknown* pIUnk) {
         goto Release;
     }
 
+	/* Проверка поддержки подключений обратного интерфейса */
+    result = pIEcoLab1->pVTbl->QueryInterface(pIEcoLab1, &IID_IEcoConnectionPointContainer, (void **)&pICPC);
+    if (result != 0 || pICPC == 0) {
+        /* Освобождение интерфейсов в случае ошибки */
+        goto Release;
+    }
+
+    /* Запрос на получения интерфейса точки подключения */
+    result = pICPC->pVTbl->FindConnectionPoint(pICPC, &IID_IEcoLab1Events, &pICP);
+    if (result != 0 || pICP == 0) {
+        /* Освобождение интерфейсов в случае ошибки */
+        goto Release;
+    }
+
+	/* Освобождение интерфейса */
+    pICPC->pVTbl->Release(pICPC);
+
+    /* Создание экземпляра обратного интерфейса */
+    result = createCEcoLab1Sink(pIMem, (IEcoLab1Events**)&pIEcoLab1Sink);
+
+    if (pIEcoLab1Sink != 0) {
+        result = pIEcoLab1Sink->pVTbl->QueryInterface(pIEcoLab1Sink, &IID_IEcoUnknown,(void **)&pISinkUnk);
+        if (result != 0 || pISinkUnk == 0) {
+            /* Освобождение интерфейсов в случае ошибки */
+            goto Release;
+        }
+        /* Подключение */
+        result = pICP->pVTbl->Advise(pICP, pISinkUnk, &cAdvise);
+        /* Проверка */
+        if (result == 0 && cAdvise == 1) {
+            /* Сюда можно добавить код */
+        }
+        /* Освобождение интерфейса */
+        pISinkUnk->pVTbl->Release(pISinkUnk);
+    }
 
 	//Демонстрация работы с интерфейсами
 
-	a = 1;
+	/*a = 1;
 	b = 1;
 
 	pIEcoLab1->pVTbl->QueryInterface(pIEcoLab1, &IID_IEcoCalculatorX, (void**)&pIX);
@@ -236,33 +291,29 @@ int16_t EcoMain(IEcoUnknown* pIUnk) {
 	printArrInt(arr_int_stooge_sort, 10);
 	pIEcoLab2->pVTbl->qsort(pIEcoLab1, (char*)arr_int_stooge_sort, 10, sizeof(int), compareInts);
 	printArrInt(arr_int_stooge_sort, 10);
-	printf("\n");
+	printf("\n");*/
 
 	// Конец демонстрации работы с интерфейсами
 
+	// printf("Input array size -> ");
+	//scanf_s("%d", &arr_size);
 
-
-
-	printf("Input array size -> ");
-	scanf_s("%d", &arr_size);
-
-
-	arr_int_stooge_sort = createArrInt(pIMem, arr_size);
-    arr_float_stooge_sort = createArrFloat(pIMem, arr_size);
+	//arr_int_stooge_sort = createArrInt(pIMem, arr_size);
+    /*arr_float_stooge_sort = createArrFloat(pIMem, arr_size);
     arr_fdouble_stooge_sort = createArrDouble(pIMem, arr_size);
 
     arr_int_qsort = createCopyArr(pIMem, arr_int_stooge_sort, arr_size * sizeof(int));
     arr_float_qsort = createCopyArr(pIMem, arr_float_stooge_sort, arr_size * sizeof(float));
-    arr_double_qsort = createCopyArr(pIMem, arr_fdouble_stooge_sort, arr_size * sizeof(double));
+    arr_double_qsort = createCopyArr(pIMem, arr_fdouble_stooge_sort, arr_size * sizeof(double));*/
 
 	//printf("Before sort\n");
     //printArrInt(arr_int_stooge_sort, arr_size);
     //printArrFloat(arr_float_stooge_sort, arr_size);
     //printArrDouble(arr_fdouble_stooge_sort, arr_size);
     
-	start_time = clock();
-	result = pIEcoLab1->pVTbl->qsort(pIEcoLab1, (char*)arr_int_stooge_sort, arr_size, sizeof(int), compareInts);
-	printf("Stooge sort time (int): %fn\n", (double)(clock() - start_time)); 
+	//start_time = clock();
+	//result = pIEcoLab1->pVTbl->qsort(pIEcoLab1, (char*)arr_int_stooge_sort, arr_size, sizeof(int), compareInts);
+	/*printf("Stooge sort time (int): %fn\n", (double)(clock() - start_time)); 
 
     start_time = clock();
     result = pIEcoLab1->pVTbl->qsort(pIEcoLab1, (char*)arr_float_stooge_sort, arr_size, sizeof(float), compareFloats);
@@ -282,7 +333,7 @@ int16_t EcoMain(IEcoUnknown* pIUnk) {
 
     start_time = clock();
     qsort(arr_double_qsort, arr_size, sizeof(double), compareDoubles);
-    printf("Qsort time (double): %fn\n", (double)(clock() - start_time)); 
+    printf("Qsort time (double): %fn\n", (double)(clock() - start_time)); */
 
 
 	//printf("Sorted arrays\n");
@@ -290,12 +341,25 @@ int16_t EcoMain(IEcoUnknown* pIUnk) {
     //printArrFloat(arr_float_stooge_sort, arr_size);
     //printArrDouble(arr_fdouble_stooge_sort, arr_size);
 
-    pIMem->pVTbl->Free(pIMem, arr_int_stooge_sort);
-    pIMem->pVTbl->Free(pIMem, arr_float_stooge_sort);
+   // pIMem->pVTbl->Free(pIMem, arr_int_stooge_sort);
+    /*pIMem->pVTbl->Free(pIMem, arr_float_stooge_sort);
     pIMem->pVTbl->Free(pIMem, arr_fdouble_stooge_sort);
     pIMem->pVTbl->Free(pIMem, arr_int_qsort);
     pIMem->pVTbl->Free(pIMem, arr_float_qsort);
-    pIMem->pVTbl->Free(pIMem, arr_double_qsort);
+    pIMem->pVTbl->Free(pIMem, arr_double_qsort);*/
+
+	CheckInf(count, processes);
+    pIEcoLab1->pVTbl->schProcesses(pIEcoLab1, processes, count, orders);
+    CheckOrder(count, orders);
+
+	if (pIEcoLab1Sink != 0) {
+        /* Отключение */
+        result = pICP->pVTbl->Unadvise(pICP, cAdvise);
+        pIEcoLab1Sink->pVTbl->Release(pIEcoLab1Sink);
+        pICP->pVTbl->Release(pICP);
+    }
+
+	goto Release;
 
 Release:
 

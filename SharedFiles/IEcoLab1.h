@@ -1,30 +1,8 @@
-﻿/*
- * <кодировка символов>
- *   Cyrillic (UTF-8 with signature) - Codepage 65001
- * </кодировка символов>
- *
- * <сводка>
- *   IEcoLab1
- * </сводка>
- *
- * <описание>
- *   Данный заголовок описывает интерфейс IEcoLab1
- * </описание>
- *
- * <ссылка>
- *
- * </ссылка>
- *
- * <автор>
- *   Copyright (c) 2018 Vladimir Bashev. All rights reserved.
- * </автор>
- *
- */
-
-#ifndef __I_ECOLAB1_H__
+﻿#ifndef __I_ECOLAB1_H__
 #define __I_ECOLAB1_H__
 
 #include "IEcoBase1.h"
+#include "SchedProcess.h"
 
 /* IEcoLab1 IID = {277FC00C-3562-4096-AFCF-C125B94EEC90} */
 #ifndef __IID_IEcoLab1
@@ -39,7 +17,7 @@ typedef struct IEcoLab1VTbl {
     uint32_t (ECOCALLMETHOD *Release)(/* in */ struct IEcoLab1* me);
 
     /* IEcoLab1 */
-    int16_t (ECOCALLMETHOD *qsort)(struct IEcoLab1* me, char* start_ptr, size_t arr_size, size_t elem_size, int (__cdecl *comp)(const void *, const void*));
+	int16_t (ECOCALLMETHOD *schProcesses)(struct IEcoLab1* me, Process processes[], int n, int *completion_order);
 
 } IEcoLab1VTbl, *IEcoLab1VTblPtr;
 

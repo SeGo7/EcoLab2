@@ -1,23 +1,4 @@
-﻿/*
- * <кодировка символов>
- *   Cyrillic (UTF-8 with signature) - Codepage 65001
- * </кодировка символов>
- *
- * <сводка>
- *   CEcoLab1
- * </сводка>
- *
- * <описание>
- *   Данный заголовок описывает реализацию компонента CEcoLab1
- * </описание>
- *
- * <автор>
- *   Copyright (c) 2018 Vladimir Bashev. All rights reserved.
- * </автор>
- *
- */
-
-#ifndef __C_ECOLAB1_H__
+﻿#ifndef __C_ECOLAB1_H__
 #define __C_ECOLAB1_H__
 
 #include "IEcoLab1.h"
@@ -26,6 +7,11 @@
 
 #include "IEcoCalculatorX.h"
 #include "IEcoCalculatorY.h"
+
+#include "IEcoLab1Events.h"
+#include "IEcoEnumConnections.h"
+#include "IEcoConnectionPointContainer.h"
+#include "CEcoLab1ConnectionPoint.h"
 
 typedef struct CEcoLab1 {
 
@@ -37,6 +23,9 @@ typedef struct CEcoLab1 {
 
 	/* Таблица функций интерфейса IEcoCalculatorY */
 	IEcoCalculatorYVTbl* m_pVTblIEcoCalculatorY;
+
+	/* Таблица функций интерфейса IEcoConnectionPointContainer */
+    IEcoConnectionPointContainerVTbl* m_pVTblICPC;
 
     /* Счетчик ссылок */
     uint32_t m_cRef;
@@ -58,6 +47,9 @@ typedef struct CEcoLab1 {
 
     /* Данные экземпляра */
     char_t* m_Name;
+
+	/* Точка подключения */
+    CEcoLab1ConnectionPoint* m_pISinkCP;
 
 } CEcoLab1, *CEcoLab1Ptr;
 

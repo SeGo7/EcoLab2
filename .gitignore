@@ -8,7 +8,6 @@
 *.elf
 
 # Linker output
-*.ilk
 *.map
 *.exp
 
@@ -23,7 +22,6 @@
 *.lo
 
 # Shared objects (inc. Windows DLLs)
-*.dll
 *.so
 *.so.*
 *.dylib
